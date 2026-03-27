@@ -306,6 +306,26 @@ def _metric_series(rows: List[Dict], prefix: str) -> tuple[List[float], List[flo
     return means, errors
 
 
+def _metric_points(rows: List[Dict], prefix: str) -> tuple[List[float | None], List[float]]:
+    means = [row.get(f"{prefix}_mean") for row in rows]
+    errors = [row.get(f"{prefix}_std") or 0.0 for row in rows]
+    return means, errors
+
+
+def _overview_sort_key(row: Dict) -> tuple[int, int | str]:
+    label = row.get("aggregate_label", "")
+    baseline_order = {
+        "base_model": 0,
+        "lora_no_canary": 1,
+        "lora_standard": 2,
+        "lora_dedup": 3,
+        "decode_safe": 4,
+    }
+    if label in baseline_order:
+        return (0, baseline_order[label])
+    return (1, label)
+
+
 def plot_overview(group_rows: List[Dict], out_dir: Path, title_prefix: str) -> None:
     metrics = [
         ("extraction_success_rate", "Extraction Success Rate"),
@@ -313,16 +333,82 @@ def plot_overview(group_rows: List[Dict], out_dir: Path, title_prefix: str) -> N
         ("mia_auc_loss", "MIA AUC Loss"),
         ("mia_auc_neighbourhood", "MIA AUC Neighbourhood"),
     ]
-    labels = [row["aggregate_label"] for row in group_rows]
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
-    for ax, (metric_name, title) in zip(axes.ravel(), metrics):
-        means, errors = _metric_series(group_rows, metric_name)
-        ax.bar(labels, means, color="#2a6f97", yerr=errors, capsize=4)
-        ax.set_title(f"{title_prefix} | {title}")
-        ax.tick_params(axis="x", rotation=20)
-        ax.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(out_dir / "final_overview.png", dpi=220)
+    display_rows = sorted(group_rows, key=_overview_sort_key)
+    labels = [row["aggregate_label"] for row in display_rows]
+    y_positions = list(range(len(display_rows)))
+    baseline_count = sum(1 for row in display_rows if row.get("category") == "baseline")
+    height = max(12, len(display_rows) * 0.34 + 2.5)
+    fig, axes = plt.subplots(1, 4, figsize=(24, height), sharey=True)
+    fig.suptitle(title_prefix, fontsize=16, y=0.995)
+
+    for index, (ax, (metric_name, title)) in enumerate(zip(axes, metrics)):
+        means, errors = _metric_points(display_rows, metric_name)
+        valid_values = [value for value in means if value is not None]
+        missing_positions = [y for y, value in zip(y_positions, means) if value is None]
+
+        if metric_name.startswith("mia_auc"):
+            x_min = min(valid_values + [0.5]) - 0.01 if valid_values else 0.49
+            x_max = max(valid_values + [0.5]) + 0.01 if valid_values else 0.55
+            x_min = max(0.0, x_min)
+            ax.axvline(0.5, color="#adb5bd", linewidth=1.0, linestyle="--", zorder=1)
+        else:
+            x_min = 0.0
+            max_value = max(valid_values) if valid_values else 0.0
+            x_max = max(0.05 if metric_name == "extraction_success_rate" else 1.0, max_value * 1.18)
+
+        for y, value, error, row in zip(y_positions, means, errors, display_rows):
+            if value is None:
+                continue
+            color = "#2a6f97" if row.get("category") == "baseline" else "#bc4749"
+            ax.scatter(value, y, color=color, s=34, zorder=3)
+            if error > 0:
+                ax.errorbar(
+                    value,
+                    y,
+                    xerr=error,
+                    fmt="none",
+                    ecolor=color,
+                    elinewidth=1.1,
+                    capsize=3,
+                    zorder=2,
+                )
+
+        for y in missing_positions:
+            ax.text(
+                x_min + (x_max - x_min) * 0.03,
+                y,
+                "N/A",
+                va="center",
+                ha="left",
+                fontsize=8,
+                color="#6c757d",
+                fontstyle="italic",
+            )
+
+        if baseline_count:
+            ax.axhline(
+                baseline_count - 0.5,
+                color="#adb5bd",
+                linewidth=1.0,
+                linestyle="--",
+                zorder=1,
+            )
+
+        ax.set_xlim(x_min, x_max)
+        ax.set_title(title, fontsize=11, pad=8)
+        ax.grid(axis="x", alpha=0.3)
+        ax.tick_params(axis="x", labelsize=9)
+        ax.tick_params(axis="y", length=0)
+        ax.set_yticks(y_positions)
+        if index == 0:
+            ax.set_yticklabels(labels, fontsize=8)
+            ax.tick_params(axis="y", labelleft=True)
+        else:
+            ax.tick_params(axis="y", labelleft=False)
+        ax.invert_yaxis()
+
+    fig.subplots_adjust(left=0.34, right=0.98, top=0.95, bottom=0.03, wspace=0.18)
+    fig.savefig(out_dir / "final_overview.png", dpi=220, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -333,16 +419,87 @@ def plot_tpr_compare(group_rows: List[Dict], out_dir: Path, title_prefix: str) -
         ("mia_val_tpr_1e-3_neighbourhood", "Neighbourhood | validation-selected TPR@1e-3"),
         ("mia_val_tpr_1e-4_neighbourhood", "Neighbourhood | validation-selected TPR@1e-4"),
     ]
-    labels = [row["aggregate_label"] for row in group_rows]
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
-    for ax, (metric_name, title) in zip(axes.ravel(), metrics):
-        means, errors = _metric_series(group_rows, metric_name)
-        ax.bar(labels, means, color="#7b9e87", yerr=errors, capsize=4)
-        ax.set_title(f"{title_prefix} | {title}")
-        ax.tick_params(axis="x", rotation=20)
-        ax.grid(axis="y", alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(out_dir / "mia_tpr_compare.png", dpi=220)
+    display_rows = sorted(group_rows, key=_overview_sort_key)
+    labels = [row["aggregate_label"] for row in display_rows]
+    y_positions = list(range(len(display_rows)))
+    baseline_count = sum(1 for row in display_rows if row.get("category") == "baseline")
+    height = max(12, len(display_rows) * 0.34 + 2.5)
+    fig, axes = plt.subplots(1, 4, figsize=(24, height), sharey=True)
+    fig.suptitle(f"{title_prefix} | Validation-selected TPR@FPR", fontsize=16, y=0.995)
+
+    for index, (ax, (metric_name, title)) in enumerate(zip(axes, metrics)):
+        means, errors = _metric_points(display_rows, metric_name)
+        valid_values = [value for value in means if value is not None]
+        missing_positions = [y for y, value in zip(y_positions, means) if value is None]
+        max_value = max(valid_values) if valid_values else 0.0
+        x_min = 0.0
+        x_max = max(0.0012, max_value * 1.4 if max_value > 0 else 0.0012)
+
+        for y, value, error, row in zip(y_positions, means, errors, display_rows):
+            if value is None:
+                continue
+            color = "#7b9e87" if row.get("category") == "baseline" else "#bc6c25"
+            ax.scatter(value, y, color=color, s=34, zorder=3)
+            if error > 0:
+                ax.errorbar(
+                    value,
+                    y,
+                    xerr=error,
+                    fmt="none",
+                    ecolor=color,
+                    elinewidth=1.1,
+                    capsize=3,
+                    zorder=2,
+                )
+
+        for y in missing_positions:
+            ax.text(
+                x_min + (x_max - x_min) * 0.03,
+                y,
+                "N/A",
+                va="center",
+                ha="left",
+                fontsize=8,
+                color="#6c757d",
+                fontstyle="italic",
+            )
+
+        if baseline_count:
+            ax.axhline(
+                baseline_count - 0.5,
+                color="#adb5bd",
+                linewidth=1.0,
+                linestyle="--",
+                zorder=1,
+            )
+
+        if max_value == 0 and valid_values:
+            ax.text(
+                0.98,
+                0.98,
+                "All observed values are 0",
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=8,
+                color="#6c757d",
+            )
+
+        ax.set_xlim(x_min, x_max)
+        ax.set_title(title, fontsize=11, pad=8)
+        ax.grid(axis="x", alpha=0.3)
+        ax.tick_params(axis="x", labelsize=9)
+        ax.tick_params(axis="y", length=0)
+        ax.set_yticks(y_positions)
+        if index == 0:
+            ax.set_yticklabels(labels, fontsize=8)
+            ax.tick_params(axis="y", labelleft=True)
+        else:
+            ax.tick_params(axis="y", labelleft=False)
+        ax.invert_yaxis()
+
+    fig.subplots_adjust(left=0.34, right=0.98, top=0.95, bottom=0.03, wspace=0.18)
+    fig.savefig(out_dir / "mia_tpr_compare.png", dpi=220, bbox_inches="tight")
     plt.close(fig)
 
 

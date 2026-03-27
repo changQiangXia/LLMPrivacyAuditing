@@ -38,7 +38,7 @@
 
 当前项目使用三类方法判断模型是否出现记忆与泄露风险，三者关注的现象不同，适合配合阅读。
 
-| 方法 | 主要看什么 | 当前实现方式 | 如何理解结果 |
+| 方法 | 关注点 | 实现方式 | 结果解读 |
 | --- | --- | --- | --- |
 | **canary 抽取攻击** | 模型是否会把训练集中插入的 canary 直接生成出来 | 向模型提供 canary 前缀，执行补全，统计是否命中完整 canary | 成功率越高，直接泄露证据越强；若结果为 `0`，只能说明当前设置下未直接抽取成功，不能单独推出没有风险 |
 | **approximate exposure** | 模型是否在统计上更偏向记住目标 canary | 计算目标 canary 的负对数似然排名，并与一组随机参考 canary 对比 | 数值越高，说明目标 canary 越可能被模型特殊记住；该方法适合发现抽取攻击之外的隐含记忆信号 |
@@ -71,7 +71,7 @@
 | `FPR` | 假阳性率，真实 `nonmember` 被误判为 `member` 的比例 | 越低越好，表示误报更少 |
 | `TPR@FPR` | 在固定误报率约束下的真阳性率 | 用于观察低误报条件下，攻击还能保留多少识别能力 |
 
-### 5.3 如何把这些词连起来看
+### 5.3 联合词语
 
 - 当 `Extraction Success Rate` 升高时，说明模型已经出现了更直接的内容泄露。
 - 当抽取成功率仍为 `0`，但 `avg_exposure` 升高时，说明模型可能没有直接背出内容，但已经对目标字符串表现出更强记忆倾向。
@@ -90,25 +90,64 @@
 | `lora_dedup` | 训练前做精确字符串去重后再训练 | 1 | `0.000000` | `1.664285` | `0.520696` | 与标准 LoRA 接近，当前数据中的精确重复影响很小 |
 | `decode_safe` | 推理阶段防护，仅改变生成输出 | 1 | `0.000000` | `-` | `-` | 可压住直接抽取，其他指标不作为该 baseline 的主口径 |
 
-## 7. 结果总图
+## 7. 图表解读
+
+### 7.1 总图
 
 `final_overview.png` 汇总了当前所有 baseline 和 aggregate label 的四项核心指标。
 
 ![最终总图](./artifacts/reports/final_plots/final_overview.png)
 
-图中四个子图从左上到右下依次对应：
+图中四个子图从左到右依次对应：
 
 - `Extraction Success Rate`
 - `Average Exposure`
 - `MIA AUC Loss`
 - `MIA AUC Neighbourhood`
 
-总图速读：
+读图时建议按以下顺序理解：
 
-- **先看左上角**：当前所有正式 baseline 的完整 canary 抽取成功率均为 `0`，直接抽取信号很弱。
-- **再看右上角**：`lora_standard` 的 `avg_exposure = 1.651849 ± 0.019638`，明显高于 `lora_no_canary = 1.261029 ± 0.008580` 与 `base_model = 1.259471`，当前最强风险信号来自这一子图。
-- **最后看下排**：`MIA AUC` 有一定抬升，但多数仍位于 `0.50` 到 `0.54` 区间，当前属于辅助证据。
-- **最高风险组别主要集中在训练强度相关标签**，尤其是 `epochs_3`、`epochs_2` 和 `lr_5e-4`。
+1. **先看直接抽取是否成功**。左侧第一列几乎全部贴近 `0`，说明在当前设置下，没有观察到完整 canary 被直接补全出来的证据。
+2. **再看 exposure 是否抬升**。第二列区分度最高，是当前最有信息量的一列。
+3. **最后看 MIA 是否同步增强**。第三列和第四列有变化，但整体仍停留在弱信号区间。
+
+这张图传达的核心信息如下：
+
+- **直接抽取信号弱**：`base_model`、`lora_no_canary`、`lora_standard`、`lora_dedup` 与 `decode_safe` 的完整 canary 抽取成功率均为 `0`。
+- **统计记忆信号存在**：`lora_standard` 的 `avg_exposure = 1.651849 ± 0.019638`，明显高于 `lora_no_canary = 1.261029 ± 0.008580` 与 `base_model = 1.259471`。这说明即使没有直接背出完整 canary，模型对目标字符串的记忆倾向仍然增强。
+- **dedup 影响较小**：`lora_dedup = 1.664285` 与 `lora_standard = 1.651849 ± 0.019638` 接近，说明当前数据中的精确重复不是主要风险来源。
+- **训练强度影响更明显**：`epochs_3 = 3.055287`、`epochs_2 = 2.039426`、`lr_5e-4 = 1.786848` 均高于标准设置，说明更长训练和更激进学习率会放大记忆信号。
+- **MIA 仍偏弱**：`lora_standard` 的 `mia_auc_loss = 0.510857 ± 0.000201`，`mia_auc_neighbourhood = 0.521102 ± 0.001191`。这些数值高于 `0.5`，但离强可分离状态仍有明显距离，因此更适合作为辅助证据。
+
+用一句话概括总图：**当前实验中，直接抽取没有成功，主要风险信号来自 exposure；训练更久、学习率更高时，这一信号会更明显。**
+
+### 7.2 低误报率 MIA 图
+
+`mia_tpr_compare.png` 展示了在独立验证集上选阈后，四种低误报率条件下的 `TPR@FPR`。
+
+![低误报率 MIA 图](./artifacts/reports/final_plots/mia_tpr_compare.png)
+
+图中四个子图从左到右依次对应：
+
+- `Loss | validation-selected TPR@1e-3`
+- `Loss | validation-selected TPR@1e-4`
+- `Neighbourhood | validation-selected TPR@1e-3`
+- `Neighbourhood | validation-selected TPR@1e-4`
+
+这张图比总图更严格，因为它问的是：**在误报率被压得很低时，MIA 还能保留多少真实命中率。**
+
+当前图像反映出的信息较清晰：
+
+- **loss 分支几乎完全失效**：前两个子图中，已观测值全部为 `0`。这表示在当前验证集选阈口径下，loss-threshold MIA 在低 FPR 区间几乎没有可用识别能力。
+- **neighbourhood 分支略有信号，但非常弱**：右侧两个子图大多数组别仍为 `0`，只有 `base_model` 与 `neigh_worddrop_3_0.05` 达到 `0.001036`，约为 `0.10%` 的 `TPR`，实际仍非常接近 `0`。
+- **标准 LoRA 没有在低误报率下表现出稳定优势**：`lora_standard` 在四个子图里均为 `0`，说明当前 MIA 即使在 neighbourhood 分支中也没有给出强而稳定的低误报命中能力。
+- **评估参数会影响图上高度**：`neigh_worddrop_3_0.05` 比默认 neighbourhood 设置更高，说明这里的一部分变化来自攻击器参数本身。
+
+这张图对应的结论应保持克制：
+
+- 当前 **MIA 的主要证据在于，总图中的 `AUC` 轻微抬升**。
+- 在更接近实际审计场景的严格低误报条件下，当前 MIA 信号整体偏弱。
+- 因此，当前阶段更稳妥的判断仍然是：**exposure 是主要风险信号，低 FPR MIA 只提供了有限补充。**
 
 更详细的图表说明见 [artifacts/reports/final_plots/README.md](./artifacts/reports/final_plots/README.md)。
 
