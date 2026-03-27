@@ -1,0 +1,48 @@
+# Python envs and caches
+.venv/
+.venv_new/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Editor and notebook noise
+.DS_Store
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# Local AutoDL state
+.autodl/
+
+# Logs
+*.log
+logs/
+
+# Local datasets and generated processed data
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+# Downloaded model weights
+models/
+
+# Experiment outputs
+outputs/*
+!outputs/.gitkeep
+
+# Local environment snapshots
+artifacts/env/
+
+# Temporary report artifacts
+artifacts/reports/_tmp*
+artifacts/reports/_tmp_plots/
+
+# Private or local-only docs
+Checklist.md
+instructions.md
+docs/dependency_install.md
+docs/environment.md

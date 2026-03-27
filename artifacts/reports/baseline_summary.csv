@@ -1,0 +1,5 @@
+aggregate_label,category,n,seeds,train_loss_mean,train_loss_std,extraction_success_rate_mean,extraction_success_rate_std,avg_exposure_mean,avg_exposure_std,mia_auc_loss_mean,mia_auc_loss_std,mia_auc_neighbourhood_mean,mia_auc_neighbourhood_std,notes
+base_model,baseline,1,0,,,0.0,0.0,1.2594712206491605,0.0,0.49419985848905834,0.0,0.49907420149879267,0.0,基础模型，无 LoRA
+lora_dedup,baseline,1,0,2.638227421001796,0.0,0.0,0.0,1.6642854344629334,0.0,0.5125768197292385,0.0,0.5155064298513027,0.0,开启 dedup 的 LoRA，当前训练集无精确重复，等价于标准训练集
+lora_no_canary,baseline,1,0,2.2204467264811196,0.0,0.0,0.0,1.2695170316113356,0.0,0.5096548550902931,0.0,0.5165427403357616,0.0,不插入 canary 的 LoRA
+lora_standard,baseline,3,"0,1,2",2.6388200356142364,0.0032398035902333187,0.0,0.0,1.651848531951627,0.019638217618160467,0.5122869864146723,0.0003072471501863867,0.515469129160938,0.00037869519689075274,插入 canary 的标准 LoRA

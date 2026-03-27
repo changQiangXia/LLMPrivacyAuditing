@@ -1,0 +1,59 @@
+experiments:
+  - label: "base_model_seed0"
+    aggregate_label: "base_model"
+    category: "baseline"
+    seed: 0
+    attack_dir: "outputs/experiments/attack_extract/base_model_full"
+    exposure_dir: "outputs/experiments/exposure/base_model_full"
+    mia_dir: "outputs/experiments/mia/base_model_full"
+    notes: "基础模型，无 LoRA"
+
+  - label: "lora_standard_seed0"
+    aggregate_label: "lora_standard"
+    category: "baseline"
+    seed: 0
+    train_dir: "outputs/experiments/train/baseline_standard_seed0"
+    attack_dir: "outputs/experiments/attack_extract/baseline_standard_seed0_full"
+    exposure_dir: "outputs/experiments/exposure/baseline_standard_seed0_full"
+    mia_dir: "outputs/experiments/mia/baseline_standard_seed0_full"
+    notes: "插入 canary 的标准 LoRA"
+
+  - label: "lora_standard_seed1"
+    aggregate_label: "lora_standard"
+    category: "baseline"
+    seed: 1
+    train_dir: "outputs/experiments/train/baseline_standard_seed1"
+    attack_dir: "outputs/experiments/attack_extract/baseline_standard_seed1_full"
+    exposure_dir: "outputs/experiments/exposure/baseline_standard_seed1_full"
+    mia_dir: "outputs/experiments/mia/baseline_standard_seed1_full"
+    notes: "插入 canary 的标准 LoRA"
+
+  - label: "lora_standard_seed2"
+    aggregate_label: "lora_standard"
+    category: "baseline"
+    seed: 2
+    train_dir: "outputs/experiments/train/baseline_standard_seed2"
+    attack_dir: "outputs/experiments/attack_extract/baseline_standard_seed2_full"
+    exposure_dir: "outputs/experiments/exposure/baseline_standard_seed2_full"
+    mia_dir: "outputs/experiments/mia/baseline_standard_seed2_full"
+    notes: "插入 canary 的标准 LoRA"
+
+  - label: "lora_no_canary_seed0"
+    aggregate_label: "lora_no_canary"
+    category: "baseline"
+    seed: 0
+    train_dir: "outputs/experiments/train/baseline_no_canary_seed0"
+    attack_dir: "outputs/experiments/attack_extract/baseline_no_canary_seed0_full"
+    exposure_dir: "outputs/experiments/exposure/baseline_no_canary_seed0_full"
+    mia_dir: "outputs/experiments/mia/baseline_no_canary_seed0_full"
+    notes: "不插入 canary 的 LoRA"
+
+  - label: "lora_dedup_seed0"
+    aggregate_label: "lora_dedup"
+    category: "baseline"
+    seed: 0
+    train_dir: "outputs/experiments/train/baseline_dedup_seed0"
+    attack_dir: "outputs/experiments/attack_extract/baseline_dedup_seed0_full"
+    exposure_dir: "outputs/experiments/exposure/baseline_dedup_seed0_full"
+    mia_dir: "outputs/experiments/mia/baseline_dedup_seed0_full"
+    notes: "开启 dedup 的 LoRA，当前训练集无精确重复，等价于标准训练集"

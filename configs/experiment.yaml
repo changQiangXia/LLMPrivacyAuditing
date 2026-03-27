@@ -1,0 +1,51 @@
+train:
+  model_name_or_path: "models/Qwen2.5-0.5B-Instruct"
+  train_jsonl: "data/processed/train_with_canary.jsonl"
+  output_root: "outputs/experiments"
+  epochs: 1
+  batch_size: 2
+  grad_accum: 8
+  lr: 2.0e-4
+  max_len: 512
+  seed: 0
+  logging_steps: 10
+  save_steps: 100
+  save_total_limit: 2
+  warmup_ratio: 0.03
+  scheduler: "cosine"
+  gradient_checkpointing: false
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+attack:
+  output_root: "outputs/experiments"
+  num_samples_per_prefix: 50
+  generation_batch_size: 50
+  max_new_tokens: 64
+  temperature: 0.9
+  top_p: 0.95
+  seed: 0
+
+exposure:
+  output_root: "outputs/experiments"
+  num_reference: 2000
+  batch_size: 16
+  max_length: 512
+  seed: 0
+
+mia:
+  output_root: "outputs/experiments"
+  max_samples: 2000
+  max_validation_samples: 500
+  validation_fraction: 0.2
+  neigh_k: 5
+  word_drop: 0.1
+  batch_size: 16
+  max_length: 512
+  seed: 0
