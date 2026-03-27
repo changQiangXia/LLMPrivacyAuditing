@@ -15,7 +15,7 @@
 
 ## 2. 阅读原则
 
-- **baseline** 中的 `lora_standard` 与 `lora_no_canary` 为多 seed 汇总，误差条可直接表示波动范围。
+- **baseline** 中的 `lora_standard` 与 `lora_no_canary` 为多 seed 汇总，误差线可直接表示波动范围。
 - 多数 **ablation** 仍为单次运行结果，图中趋势适合用于敏感性定位，不直接表述为稳定统计规律。
 - `Extraction Success Rate`、`avg_exposure`、`MIA AUC` 数值越高，表示风险信号越强。
 - `MIA AUC` 接近 `0.5` 时，member 与 nonmember 的可分离性较弱。
@@ -25,20 +25,22 @@
 
 ![总图](./final_overview.png)
 
-该图用于快速横向比较所有 baseline 与 aggregate label。四个子图从左上到右下依次对应：
+该图用于快速横向比较所有 baseline 与 aggregate label。当前版本采用 **四列横向排布的点图**，四个子图从左到右依次对应：
 
 - `Extraction Success Rate`
 - `Average Exposure`
 - `MIA AUC Loss`
 - `MIA AUC Neighbourhood`
 
+纵轴为全部 `aggregate_label`，第一列显示完整标签，其余三列共享同一组标签。图中的虚线将 **baseline** 与 **ablation** 分开；误差线只会出现在多 seed 汇总组别上；`N/A` 表示该指标在该组别下不适用。
+
 ### 3.1 总图阅读顺序
 
-横轴标签较多，逐个读柱子效率较低。更合适的顺序如下：
+纵轴标签较多，逐个读点位效率较低。更合适的顺序如下：
 
-1. 先看 **左上角**，确认是否出现直接抽取。
-2. 再看 **右上角**，判断统计记忆信号是否显著抬升。
-3. 再看 **左下角** 与 **右下角**，判断 membership 信号是否同步增强。
+1. 先看 **第一列**，确认是否出现直接抽取。
+2. 再看 **第二列**，判断统计记忆信号是否显著抬升。
+3. 再看 **第三列** 与 **第四列**，判断 membership 信号是否同步增强。
 4. 最后只比较少数关键标签，无需逐一扫描全部组别。
 
 优先比较的标签为：
@@ -51,24 +53,24 @@
 
 ### 3.2 一眼可得的结论
 
-- **左上角几乎全部贴近 0**，说明当前设置下没有直接抽取出完整 canary。
-- **右上角柱高差异最大**，说明当前最强的风险信号来自 `avg_exposure`。
-- **底部两个子图存在变化，但整体仍接近弱信号区间**，MIA 可作为辅助证据，当前不宜单独承担主结论。
-- **最高柱子主要集中在 `epochs`、`num_canaries`、`lr` 等组别**，训练强度和注入策略比当前抽样参数更值得重点关注。
+- **第一列的点位几乎全部贴近 0**，说明当前设置下没有直接抽取出完整 canary。
+- **第二列的横向差异最大**，说明当前最强的风险信号来自 `avg_exposure`。
+- **第三列和第四列存在变化，但整体仍接近弱信号区间**，MIA 可作为辅助证据，当前不宜单独承担主结论。
+- **最靠右的点位主要集中在 `epochs`、`num_canaries`、`lr` 等组别**，训练强度和注入策略比当前抽样参数更值得重点关注。
 
-### 3.3 左上角：`Extraction Success Rate`
+### 3.3 第一列：`Extraction Success Rate`
 
 - 主要 baseline 均为 `0`：
   - `base_model = 0`
   - `lora_no_canary = 0`
   - `lora_standard = 0`
   - `lora_dedup = 0`
-  - `decode_safe = 0`
+- `decode_safe = 0`
 - 多数 ablation 也保持 `0`。
 - 该子图的作用主要是给出一个明确边界：**当前没有直接背出完整 canary 的证据**。
-- 因此读图重点不应停留在左上角，而应转向右上角和下排两个子图。
+- 因此读图重点不应停留在第一列，而应转向第二列到第四列。
 
-### 3.4 右上角：`Average Exposure`
+### 3.4 第二列：`Average Exposure`
 
 - 该子图区分度最高，是总图中最核心的风险信号。
 - baseline 对比最清晰：
@@ -86,9 +88,9 @@
   - `epochs_2 = 2.039426`
   - `num_canaries_100 = 1.900846`
   - `lr_5e-4 = 1.786848`
-- 右上角想传达的信息很直接：**统计记忆信号确实存在，而且会被训练强度进一步放大**。
+- 第二列想传达的信息很直接：**统计记忆信号确实存在，而且会被训练强度进一步放大**。
 
-### 3.5 左下角：`MIA AUC Loss`
+### 3.5 第三列：`MIA AUC Loss`
 
 - baseline 数值整体靠近 `0.5`：
   - `base_model = 0.486637`
@@ -103,11 +105,11 @@
   - `lr_5e-4 = 0.528695`
   - `epochs_2 = 0.526347`
   - `lora_alpha_64 = 0.523077`
-- 左下角更适合作为辅助验证：当训练更强时，membership 风险会随之抬头，但幅度仍明显弱于 exposure。
+- 第三列更适合作为辅助验证：当训练更强时，membership 风险会随之抬头，但幅度仍明显弱于 exposure。
 
-### 3.6 右下角：`MIA AUC Neighbourhood`
+### 3.6 第四列：`MIA AUC Neighbourhood`
 
-- 该子图比左下角更敏感，但仍需谨慎解读。
+- 该子图比第三列更敏感，但仍需谨慎解读。
 - baseline 组别为：
   - `base_model = 0.501257`
   - `lora_no_canary = 0.521339 ± 0.000056`
@@ -125,7 +127,7 @@
 
 ### 3.7 总图中的三类标签
 
-总图中的柱子并不都表示同一种变化，主要分为三类：
+总图中的点位并不都表示同一种变化，主要分为三类：
 
 - **baseline**
   - `base_model`
@@ -161,8 +163,8 @@
 
 ### 3.9 使用总图时的注意事项
 
-- `decode_safe` 仅作用于生成输出，因此在总图中更适合看左上角，其他子图出现空值属于正常现象。
-- `lora_standard` 与 `lora_no_canary` 带误差条，因为它们是多 seed 汇总；多数 ablation 没有误差条，因为当前只有单次运行。
+- `decode_safe` 仅作用于生成输出，因此在总图中更适合看第一列，其他子图出现 `N/A` 属于正常现象。
+- `lora_standard` 与 `lora_no_canary` 带误差线，因为它们是多 seed 汇总；多数 ablation 没有误差线，因为当前只有单次运行。
 - 总图适合做 **全局定位**，具体数值仍应回看 `group_metrics.csv` 或 `final_summary.md`。
 - 若只保留一句话概括总图，可写为：
   - **当前实验中，直接抽取未成功，主要风险信号来自 exposure；训练更久、学习率更高时，这一信号会更明显。**
@@ -171,18 +173,24 @@
 
 ![低误报率对比图](./mia_tpr_compare.png)
 
-该图展示基于独立验证集选阈后的四类 `TPR@FPR` 指标。四个子图分别对应：
+该图展示基于独立验证集选阈后的四类 `TPR@FPR` 指标。当前版本同样采用 **四列横向排布的点图**，四个子图从左到右分别对应：
 
 - `Loss | validation-selected TPR@1e-3`
 - `Loss | validation-selected TPR@1e-4`
 - `Neighbourhood | validation-selected TPR@1e-3`
 - `Neighbourhood | validation-selected TPR@1e-4`
 
+其中：
+
+- 第一列显示完整 `aggregate_label`，其余三列共享同一组纵轴标签。
+- `N/A` 表示该组别在该指标下没有可用值。
+- `All observed values are 0` 表示该列中所有已观测值都为 `0`，图里不再用几乎贴在原点上的点位硬挤出差异。
+
 当前图像反映出的信息较直接：
 
-- 低 FPR 条件下，可用的 membership 信号整体偏弱。
-- 多数组别的 `TPR` 接近 `0`。
-- `neighbourhood` 分支相对更容易出现轻微信号。
+- **前两列对应的 loss 分支几乎没有低 FPR 识别能力**，因此图中会直接标出 `All observed values are 0`。
+- **后两列对应的 neighbourhood 分支略有信号，但整体仍然很弱**，多数点位依然贴近 `0`。
+- **第一列到第四列都应优先看 baseline 与少数关键 ablation**，不需要逐一扫描全部标签。
 
 ## 5. 关键消融图
 
